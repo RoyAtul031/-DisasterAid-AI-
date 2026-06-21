@@ -1,0 +1,21 @@
+# Private API Keys and Local Environment configurations
+.env
+.env.local
+.env.*
+
+# Local SQLite Database
+*.db
+backend/disasteraid.db
+
+# Python caches and virtual environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.eggs/
+build/
+dist/
+*.egg-info/
+.DS_Store
+node_modules/

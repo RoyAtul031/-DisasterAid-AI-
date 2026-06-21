@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DisasterAid AI - Emergency Response Coordinator</title>
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- SVG Icons styling / setup -->
+</head>
+<body>
+    <!-- Top Emergency Pulsing Bar -->
+    <div class="emergency-bar" id="emergencyBar">
+        <span class="pulse-icon">🚨</span> 
+        <strong>CRITICAL NOTICE:</strong> In life-threatening emergencies, dial <strong>112</strong> immediately.
+    </div>
+
+    <!-- Main Container -->
+    <div class="app-container">
+        
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <span class="logo-icon">🆘</span>
+                <div class="logo-text">
+                    <h1>DisasterAid AI</h1>
+                    <p>Real-Time Multi-Agent Response</p>
+                </div>
+            </div>
+            
+            <!-- Location and Language controls -->
+            <div class="header-controls">
+                <div class="location-badge" id="locationBadge">
+                    <span class="loc-icon">📍</span>
+                    <span id="currentLocationText">West Bengal, India</span>
+                    <button class="btn-icon" id="btnDetectLocation" title="Auto-detect location">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line></svg>
+                    </button>
+                    <button class="btn-icon" id="btnEditLocation" title="Edit location manually">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon></svg>
+                    </button>
+                </div>
+
+                <div class="status-indicator">
+                    <span class="status-dot online"></span>
+                    <span class="status-text" id="networkStatus">Online</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content Grid -->
+        <main class="main-content">
+            
+            <!-- Left Side: Chat Panel -->
+            <section class="chat-section">
+                <!-- Severity Indicator Banner -->
+                <div class="severity-panel hidden" id="severityPanel">
+                    <span id="severityIcon">⚠️</span>
+                    <div class="severity-details">
+                        <span class="severity-label">SEVERITY LEVEL:</span>
+                        <span class="severity-value" id="severityValue">HIGH</span>
+                    </div>
+                </div>
+
+                <!-- Chat Log -->
+                <div class="chat-log" id="chatLog">
+                    <!-- Initial Welcome Message -->
+                    <div class="chat-message assistant">
+                        <div class="avatar">🤖</div>
+                        <div class="message-content">
+                            <p><strong>Welcome to DisasterAid AI.</strong> 🙏</p>
+                            <p>I am your emergency response coordinator. I can help you find shelter, medical aid, food, clean water, and live safety alerts.</p>
+                            <p>You can describe your emergency in <strong>English, Hindi (हिंदी), or Bengali (বাংলা)</strong>. I will automatically match your language and query sub-agents in real time.</p>
+                            <p class="suggestion-p"><em>Examples you can type or say:</em></p>
+                            <div class="chat-suggestions">
+                                <button class="suggestion-chip">I am trapped on my roof in Durgapur. Water is rising fast.</button>
+                                <button class="suggestion-chip">Where can I find operational hospitals in Asansol?</button>
+                                <button class="suggestion-chip">বন্যার জল বাড়ছে কলকাতায়, সাহায্য করুন।</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Typing indicator -->
+                <div class="typing-indicator hidden" id="typingIndicator">
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <span>Emergency agents searching real-time databases...</span>
+                </div>
+
+                <!-- Input Panel -->
+                <form class="input-panel" id="chatForm">
+                    <button type="button" class="btn-input-action" id="btnVoiceInput" title="Voice Input">
+                        <svg id="voiceMicIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                    </button>
+                    <input type="text" id="userInput" placeholder="Describe your situation or request help..." autocomplete="off" required>
+                    <button type="submit" class="btn-send" id="btnSend">
+                        <span>Send</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </form>
+            </section>
+
+            <!-- Right Side: Sidebar Panel -->
+            <aside class="sidebar-section">
+                
+                <!-- Quick Action Emergency Dial Pad -->
+                <div class="sidebar-card emergency-dial">
+                    <h3>📞 Quick Dial Helpline</h3>
+                    <div class="dial-grid">
+                        <a href="tel:112" class="dial-btn critical">
+                            <span class="dial-num">112</span>
+                            <span class="dial-label">National Emergency</span>
+                        </a>
+                        <a href="tel:108" class="dial-btn high">
+                            <span class="dial-num">108</span>
+                            <span class="dial-label">Ambulance</span>
+                        </a>
+                        <a href="tel:1078" class="dial-btn moderate">
+                            <span class="dial-num">1078</span>
+                            <span class="dial-label">NDMA Helpline</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Emergency Contacts Card -->
+                <div class="sidebar-card contacts-card">
+                    <div class="card-header">
+                        <h3>📁 Verified Helplines</h3>
+                        <span class="badge offline-ready">Offline Cache</span>
+                    </div>
+                    <div class="contacts-tabs">
+                        <button class="tab-btn active" id="tabNational">National</button>
+                        <button class="tab-btn" id="tabState">State-Specific</button>
+                    </div>
+                    
+                    <div class="tab-content" id="contactsContainer">
+                        <!-- Loading State -->
+                        <div class="contacts-loading">Loading verified contacts...</div>
+                    </div>
+                </div>
+
+                <!-- Safety Guidelines Card -->
+                <div class="sidebar-card guidelines-card">
+                    <h3>⚠️ Survival Advice</h3>
+                    <ul class="survival-list">
+                        <li>
+                            <span class="list-bullet">💧</span>
+                            <div>
+                                <strong>Water Safety:</strong> Do NOT drink flood water. Boil all water for 5+ minutes before drinking.
+                            </div>
+                        </li>
+                        <li>
+                            <span class="list-bullet">⚡</span>
+                            <div>
+                                <strong>Power Hazards:</strong> Avoid electrical poles, downed wires, and electrical appliances standing in water.
+                            </div>
+                        </li>
+                        <li>
+                            <span class="list-bullet">🚗</span>
+                            <div>
+                                <strong>Evacuation:</strong> Move to high ground immediately if waters rise. Don't walk/drive through moving floodwaters.
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+            </aside>
+        </main>
+    </div>
+
+    <!-- Manual Location Modal -->
+    <div class="modal hidden" id="locationModal">
+        <div class="modal-content glass">
+            <h2>Set Location Context</h2>
+            <p>This filters local search results for shelters, food camps, and hospitals, and loads relevant state emergency numbers.</p>
+            <input type="text" id="modalLocationInput" placeholder="e.g. Kolkata, West Bengal">
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="btnCancelLocation">Cancel</button>
+                <button type="button" class="btn-primary" id="btnSaveLocation">Save Location</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- API and Application scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        // Register Service Worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker registered successfully.', reg))
+                    .catch(err => console.error('Service Worker registration failed.', err));
+            });
+        }
+    </script>
+</body>
+</html>
