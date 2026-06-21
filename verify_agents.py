@@ -57,10 +57,10 @@ async def run_verification():
     print("=" * 60)
 
     # Check API Key
-    api_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        print("❌ ERROR: GOOGLE_API_KEY or GEMINI_API_KEY not found in environment!")
-        print("Please copy .env.example to .env and configure your Gemini API Key to run tests.")
+        print("❌ ERROR: GROQ_API_KEY not found in environment!")
+        print("Please copy .env.example to .env and configure your Groq API Key to run tests.")
         return
 
     # Check Search keys

@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-import google.generativeai as genai
 from backend.tools import (
     google_search,
     fetch_disaster_alerts,
@@ -21,21 +20,13 @@ from backend.tools import (
 logger = logging.getLogger("disasteraid.agents")
 logging.basicConfig(level=logging.INFO)
 
-# Configure Gemini API
-genai.configure(api_key=os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"))
-
-# Define model names
-PRIMARY_GEMINI_MODEL = "gemini-2.0-flash"
-FALLBACK_GEMINI_MODEL = "gemini-1.5-flash"
-
 async def call_groq(system_instruction: str, prompt: str, temperature: float = 0.2) -> Optional[str]:
     """
-    Calls the Groq chat completions API with low temperature and high speed models.
-    Falls back through standard large models. Returns None if unsuccessful.
+    Calls the Groq chat completions API with retries on rate limits.
     """
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key or not api_key.strip():
-        logger.info("Groq API key not set. Skipping Groq and using Gemini.")
+        logger.error("Groq API key not set.")
         return None
 
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -45,88 +36,41 @@ async def call_groq(system_instruction: str, prompt: str, temperature: float = 0
     }
     
     # Models to try in order
-    models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "groq/compound"]
+    models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
+    retries = 3
+    delay = 2.0
     
     for model in models:
-        try:
-            logger.info(f"Attempting response generation with Groq model {model}...")
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": temperature,
-                "max_tokens": 2048
-            }
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.post(url, headers=headers, json=payload)
-                if response.status_code == 200:
-                    text = response.json()["choices"][0]["message"]["content"]
-                    logger.info(f"Groq generation successful with model {model}!")
-                    return text
-                else:
-                    logger.warning(f"Groq API error with model {model} (status {response.status_code}): {response.text}")
-        except Exception as e:
-            logger.warning(f"Groq exception with model {model}: {str(e)}")
+        for attempt in range(retries):
+            try:
+                logger.info(f"Attempting response generation with Groq model {model} (Attempt {attempt+1})...")
+                payload = {
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": temperature,
+                    "max_tokens": 2048
+                }
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    response = await client.post(url, headers=headers, json=payload)
+                    if response.status_code == 200:
+                        text = response.json()["choices"][0]["message"]["content"]
+                        logger.info(f"Groq generation successful with model {model}!")
+                        return text
+                    elif response.status_code == 429: # Rate limit
+                        logger.warning(f"Groq API rate limit with model {model}. Retrying in {delay} seconds...")
+                        await asyncio.sleep(delay)
+                        delay *= 2
+                    else:
+                        logger.warning(f"Groq API error with model {model} (status {response.status_code}): {response.text}")
+                        break # Try next model if it's not a rate limit
+            except Exception as e:
+                logger.warning(f"Groq exception with model {model}: {str(e)}")
+                break # Try next model on network/timeout exception
             
     return None
-
-async def call_gemini_with_retry(
-    system_instruction: str,
-    prompt: str,
-    temperature: float = 0.2,
-    max_output_tokens: int = 2048
-) -> str:
-    """
-    Calls Gemini API with retry logic:
-    - Retries up to 5 times on 429/5xx errors
-    - Exponential backoff
-    - Falls back to gemini-1.5-flash if primary fails
-    """
-    model_name = PRIMARY_GEMINI_MODEL
-    retries = 5
-    delay = 10.0  # Shorter initial delay for single-turn calls
-
-    for attempt in range(retries):
-        try:
-            logger.info(f"Attempting response generation with Gemini model {model_name}...")
-            model = genai.GenerativeModel(
-                model_name=f"models/{model_name}",
-                system_instruction=system_instruction,
-                generation_config={
-                    "temperature": temperature,
-                    "max_output_tokens": max_output_tokens,
-                }
-            )
-
-            # Direct text generation (no multi-turn tool calling needed since context is pre-fetched)
-            response = await asyncio.to_thread(
-                model.generate_content,
-                prompt
-            )
-            return response.text if response.text else "No response generated."
-
-        except Exception as e:
-            error_str = str(e)
-            logger.warning(f"Attempt {attempt + 1} failed for Gemini model {model_name}: {error_str}")
-            
-            is_retryable = any(code in error_str for code in ["429", "500", "503", "504"]) or "Quota exceeded" in error_str
-            
-            if is_retryable and attempt < retries - 1:
-                logger.warning(f"Retrying in {delay} seconds...")
-                await asyncio.sleep(delay)
-                delay *= 2
-            else:
-                if model_name == PRIMARY_GEMINI_MODEL:
-                    logger.warning(f"Switching to fallback Gemini model: {FALLBACK_GEMINI_MODEL}")
-                    model_name = FALLBACK_GEMINI_MODEL
-                    attempt = 0
-                    delay = 5.0
-                else:
-                    raise e
-                    
-    raise Exception("Failed to generate response after all Gemini retries and fallbacks.")
 
 def detect_script_language(text: str) -> str:
     """Detects whether text uses Bengali, Devanagari (Hindi), or English script."""
@@ -146,7 +90,7 @@ async def orchestrate_disaster_aid(user_message: str, current_location: str) -> 
     2. Detect language (Python script detection)
     3. Determine categories of needs
     4. Fetch ALL resources (Custom Searches, GDACS Alerts, Emergency Numbers) in parallel (Python)
-    5. Compile and format final response in a SINGLE LLM call (Groq or Gemini)
+    5. Compile and format final response in a SINGLE LLM call (Groq)
     """
     logger.info(f"Orchestrating DisasterAid request for location: {current_location}")
     
@@ -274,12 +218,12 @@ async def orchestrate_disaster_aid(user_message: str, current_location: str) -> 
         f"--- LOCAL EMERGENCY DIRECTORY contacts ---\n{str(local_contacts)}\n"
     )
 
-    # Step 6: Invoke LLM (Groq first, fallback to Gemini)
+    # Step 6: Invoke LLM (Groq only)
     response_text = await call_groq(root_instruction, compiler_prompt)
     
     if not response_text:
-        logger.warning("Groq failed or not set. Falling back to Gemini...")
-        response_text = await call_gemini_with_retry(root_instruction, compiler_prompt)
+        logger.error("Groq failed to generate a response.")
+        raise Exception("Failed to generate response using Groq. Please check your API key and quotas.")
         
     return {
         "severity": severity,
